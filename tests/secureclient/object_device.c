@@ -66,8 +66,8 @@
 #include <ctype.h>
 
 
-#define PRV_MANUFACTURER      "Open Mobile Alliance"
-#define PRV_MODEL_NUMBER      "Lightweight M2M Client"
+#define PRV_MANUFACTURER      "Arduino"
+#define PRV_MODEL_NUMBER      "Yun"
 #define PRV_BINDING_MODE      "U"
 
 // Resource Id's:

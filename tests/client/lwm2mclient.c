@@ -79,7 +79,7 @@
 int g_reboot = 0;
 static int g_quit = 0;
 
-#define OBJ_COUNT 9
+#define OBJ_COUNT 10
 lwm2m_object_t * objArray[OBJ_COUNT];
 
 // only backup security and server objects
@@ -529,6 +529,9 @@ static void prv_display_objects(char * buffer,
                 case TEST_OBJECT_ID:
                     display_test_object(object);
                     break;
+                case LWM2M_LIGHT_OBJECT_ID:
+                    display_led_object(object);
+                    break;
                 }
             }
         }
@@ -919,6 +922,16 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Failed to create Access Control ACL resource for serverId: 999\r\n");
         return -1;
     }
+
+
+    objArray[9] = get_object_led();
+    if (NULL == objArray[9])
+    {
+        fprintf(stderr, "Failed to led object\r\n");
+        return -1;
+    }
+
+
     /*
      * The liblwm2m library is now initialized with the functions that will be in
      * charge of communication
