@@ -58,8 +58,22 @@ extern void display_test_object(lwm2m_object_t * objectP);
  * object_led.c
  */
 #define LWM2M_LIGHT_OBJECT_ID 3311
-extern lwm2m_object_t * get_led_object(void);
+extern lwm2m_object_t * get_object_led(void);
 extern void display_led_object(lwm2m_object_t * objectP);
+
+/*
+ * object_digital_input.c
+ */
+#define LWM2M_DIGITAL_INPUT_OBJECT_ID 3200
+extern lwm2m_object_t * get_digital_input_object(void);
+extern void display_digital_input_object(lwm2m_object_t * objectP);
+
+/*
+ * object_digital_output.c
+ */
+#define LWM2M_DIGITAL_OUTPUT_OBJECT_ID 3201
+extern lwm2m_object_t * get_digital_output_object(void);
+extern void display_digital_output_object(lwm2m_object_t * objectP);
 
 /*
  * object_server.c

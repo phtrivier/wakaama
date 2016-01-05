@@ -44,7 +44,7 @@ Testing
 To compile the test server
  - - - - - - - - - - - - -
 
-In the any directory, run the following commands:
+In the root directory, run the following commands:
     cmake [liblwm2m directory]/tests/server
     make
     ./lwm2mserver
@@ -56,7 +56,7 @@ interface. Type 'help' for a list of supported commands.
 To compile the test client
  - - - - - - - - - - - - -
   
-In the any directory, run the following commands:
+In the root directory, run the following commands:
     cmake [liblwm2m directory]/tests/client
     make
     ./lwm2mclient [Options]

@@ -73,13 +73,15 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <signal.h>
+#include <fcntl.h>
+#include <poll.h>
 
 #define MAX_PACKET_SIZE 1024
 
 int g_reboot = 0;
 static int g_quit = 0;
 
-#define OBJ_COUNT 10
+#define OBJ_COUNT 12
 lwm2m_object_t * objArray[OBJ_COUNT];
 
 // only backup security and server objects
@@ -93,6 +95,14 @@ typedef struct
     int sock;
     connection_t * connList;
 } client_data_t;
+
+typedef struct
+{
+  uint16_t id;    // gpio id, eg 117 for D2
+  uint16_t dirId; // directory id, eg 2 for D2 (117)
+  int      fd;    // file descriptor for a given io.
+  
+} gpio_t;
 
 static void prv_quit(char * buffer,
                      void * user_data)
@@ -532,6 +542,10 @@ static void prv_display_objects(char * buffer,
                 case LWM2M_LIGHT_OBJECT_ID:
                     display_led_object(object);
                     break;
+                case LWM2M_DIGITAL_OUTPUT_OBJECT_ID:
+                  display_digital_output_object(object);
+                  break;
+
                 }
             }
         }
@@ -739,6 +753,27 @@ void print_usage(void)
     fprintf(stdout, "\r\n");
 }
 
+
+#define SYSFS_GPIO_DIR "/sys/class/gpio"
+#define MAX_BUF 64
+
+// Open a fd mapped to a GPIO by lininoio.
+// dirId 2 will open fd for /sys/class/gpio/D2.
+// It assumes the file exists.
+int gpio_fd_open(uint16_t * dirId)
+{
+  int fd, len;
+  char buf[MAX_BUF];
+
+  len = snprintf(buf, sizeof(buf), SYSFS_GPIO_DIR "/D%d/value", dirId);
+  
+  fd = open(buf, O_RDONLY | O_NONBLOCK );
+  if (fd < 0) {
+    perror("gpio/fd_open");
+  }
+  return fd;
+}
+
 int main(int argc, char *argv[])
 {
     client_data_t data;
@@ -923,15 +958,29 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-
     objArray[9] = get_object_led();
     if (NULL == objArray[9])
     {
-        fprintf(stderr, "Failed to led object\r\n");
+        fprintf(stderr, "Failed to create led object\r\n");
         return -1;
     }
 
+    objArray[10] = get_digital_input_object();
+    if (NULL == objArray[10])
+      {
+        fprintf(stderr, "Failed to create digital input object\r\n");
+        return -1;
+      }
+    
+    objArray[11] = get_digital_output_object();
+    if (NULL == objArray[11])
+      {
+        fprintf(stderr, "Failed to create digital output object\r\n");
+        return -1;
+      }
 
+    
+    
     /*
      * The liblwm2m library is now initialized with the functions that will be in
      * charge of communication
@@ -995,6 +1044,13 @@ int main(int argc, char *argv[])
     }
     fprintf(stdout, "LWM2M Client \"%s\" started on port %s\r\n", name, localPort);
     fprintf(stdout, "> "); fflush(stdout);
+
+    int GPIO_COUNT = 1;
+    gpio_t gpios[1];
+
+    gpios[0].id = 117;
+    gpios[0].dirId = 2;
+    
     /*
      * We now enter in a while loop that will handle the communications from the server
      */
@@ -1033,7 +1089,7 @@ int main(int argc, char *argv[])
         }
         else 
         {
-            tv.tv_sec = 60;
+          tv.tv_sec = 60;
         }
         tv.tv_usec = 0;
 
@@ -1041,6 +1097,13 @@ int main(int argc, char *argv[])
         FD_SET(data.sock, &readfds);
         FD_SET(STDIN_FILENO, &readfds);
 
+        int i;
+        for (i = 0 ; i < GPIO_COUNT ; i++) {
+          int gpio_fd = gpio_fd_open(gpios[i].dirId);
+          gpios[i].fd = gpio_fd;
+          FD_SET(gpio_fd, &readfds);
+        }
+       
         /*
          * This function does two things:
          *  - first it does the work needed by liblwm2m (eg. (re)sending some packets).
@@ -1060,6 +1123,7 @@ int main(int argc, char *argv[])
          * This part will set up an interruption until an event happen on SDTIN or the socket until "tv" timed out (set
          * with the precedent function)
          */
+        // printf("Will select with tv %d\n", tv.tv_sec);
         result = select(FD_SETSIZE, &readfds, NULL, NULL, &tv);
 
         if (result < 0)
@@ -1159,9 +1223,33 @@ int main(int argc, char *argv[])
                     fprintf(stdout, "\r\n");
                 }
             }
+            else {
+              int gpio_index = 0;
+              for (gpio_index = 0 ; gpio_index < GPIO_COUNT ; gpio_index++) {
+                if (FD_ISSET(gpios[gpio_index].fd, &readfds)) {
+                  numBytes = read(gpios[gpio_index].fd, buffer, 2);
+                  if (numBytes > 1)
+                  {
+                    int object_index = 0;
+                    for (object_index = 0 ; object_index < OBJ_COUNT ; object_index++) {
+                        lwm2m_object_t * obj = objArray[object_index];
+                        if (obj->gpioFunc != NULL) {
+                          lwm2m_gpio_callback_t gpio_callback = *obj->gpioFunc;
+                          gpio_callback(gpios[gpio_index].id, buffer, numBytes, obj, lwm2mH);
+                        }
+                     }
+                  }
+                }
+                // We need to close the file and reopen it at each loop execution
+                // to be able to re-read it's content.
+                close(gpios[gpio_index].fd);
+              }
+            } 
+            
         }
-    }
 
+    }
+    
     /*
      * Finally when the loop is left smoothly - asked by user in the command line interface - we unregister our client from it
      */

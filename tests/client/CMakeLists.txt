@@ -27,6 +27,8 @@ SET(SOURCES
     object_connectivity_stat.c
     object_access_control.c
     test_object.c
-    object_led.c)
+    object_led.c
+    object_digital_input.c
+    object_digital_output.c)
 
 add_executable(lwm2mclient ${SOURCES} ${CORE_SOURCES})
