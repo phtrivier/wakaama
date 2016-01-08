@@ -76,6 +76,13 @@ extern lwm2m_object_t * get_digital_output_object(void);
 extern void display_digital_output_object(lwm2m_object_t * objectP);
 
 /*
+ * object_TEMPERATURE_SENSOR.c
+ */
+#define LWM2M_TEMPERATURE_SENSOR_OBJECT_ID 3303
+extern lwm2m_object_t * get_temperature_sensor_object(void);
+extern void display_temperature_sensor_object(lwm2m_object_t * objectP);
+
+/*
  * object_server.c
  */
 extern lwm2m_object_t * get_server_object(int serverId, const char* binding, int lifetime, bool storing);

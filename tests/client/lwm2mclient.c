@@ -81,7 +81,7 @@
 int g_reboot = 0;
 static int g_quit = 0;
 
-#define OBJ_COUNT 12
+#define OBJ_COUNT 13
 lwm2m_object_t * objArray[OBJ_COUNT];
 
 // only backup security and server objects
@@ -98,11 +98,11 @@ typedef struct
 
 typedef struct
 {
-  uint16_t id;    // gpio id, eg 117 for D2
-  uint16_t dirId; // directory id, eg 2 for D2 (117)
+  uint16_t id;    // gpio id, eg 117 for D2, 0 for A0
+  uint16_t dirId; // directory id, eg 2 for D2 (117), 0 for A0
   int      fd;    // file descriptor for a given io.
   
-} gpio_t;
+} io_t; // pun intended
 
 static void prv_quit(char * buffer,
                      void * user_data)
@@ -578,6 +578,8 @@ static void prv_display_backup(char * buffer,
 
 static void prv_display_bootstrap_state(lwm2m_bootstrap_state_t bootstrapState)
 {
+  return;
+  
     switch (bootstrapState) {
     case NOT_BOOTSTRAPPED:
         fprintf(stderr, "NOT BOOTSTRAPPED\r\n");
@@ -755,21 +757,36 @@ void print_usage(void)
 
 
 #define SYSFS_GPIO_DIR "/sys/class/gpio"
+#define SYSFS_ANALOG_DIR "/sys/bus/iio/devices/iio:device0"
 #define MAX_BUF 64
 
 // Open a fd mapped to a GPIO by lininoio.
 // dirId 2 will open fd for /sys/class/gpio/D2.
 // It assumes the file exists.
-int gpio_fd_open(uint16_t * dirId)
+int gpio_fd_open(uint16_t dirId)
 {
   int fd, len;
   char buf[MAX_BUF];
 
   len = snprintf(buf, sizeof(buf), SYSFS_GPIO_DIR "/D%d/value", dirId);
-  
+
   fd = open(buf, O_RDONLY | O_NONBLOCK );
   if (fd < 0) {
     perror("gpio/fd_open");
+  }
+  return fd;
+}
+
+int analog_fd_open(uint16_t dirId)
+{
+  int fd, len;
+  char buf[MAX_BUF];
+
+  len = snprintf(buf, sizeof(buf), SYSFS_ANALOG_DIR "/in_voltage_A%d_raw", dirId);
+
+  fd = open(buf, O_RDONLY | O_NONBLOCK );
+  if (fd < 0) {
+    perror("analog/fd_open");
   }
   return fd;
 }
@@ -979,6 +996,12 @@ int main(int argc, char *argv[])
         return -1;
       }
 
+    objArray[12] = get_temperature_sensor_object();
+    if (NULL == objArray[12])
+      {
+        fprintf(stderr, "Failed to create temperature sensor object\r\n");
+        return -1;
+      }
     
     
     /*
@@ -1046,10 +1069,14 @@ int main(int argc, char *argv[])
     fprintf(stdout, "> "); fflush(stdout);
 
     int GPIO_COUNT = 1;
-    gpio_t gpios[1];
-
+    io_t gpios[1];
     gpios[0].id = 117;
     gpios[0].dirId = 2;
+
+    int ANALOG_COUNT = 1;
+    io_t analogs[1];
+    analogs[0].id = 0;
+    analogs[0].dirId = 0;
     
     /*
      * We now enter in a while loop that will handle the communications from the server
@@ -1103,7 +1130,15 @@ int main(int argc, char *argv[])
           gpios[i].fd = gpio_fd;
           FD_SET(gpio_fd, &readfds);
         }
-       
+
+        for (i = 0 ; i < ANALOG_COUNT ; i++) {
+          // if (analogs[i].fd == NULL) {
+            int analog_fd = analog_fd_open(analogs[i].dirId);
+            analogs[i].fd = analog_fd;
+            // }
+          FD_SET(analogs[i].fd, &readfds);
+        }
+        
         /*
          * This function does two things:
          *  - first it does the work needed by liblwm2m (eg. (re)sending some packets).
@@ -1244,6 +1279,43 @@ int main(int argc, char *argv[])
                 // to be able to re-read it's content.
                 close(gpios[gpio_index].fd);
               }
+
+              int analog_index = 0;
+              for (analog_index = 0 ; analog_index < ANALOG_COUNT ; analog_index++) {
+
+                int analog_fd = analogs[analog_index].fd;
+                
+                // printf("Checking analog_index %d\n", analog_index);
+
+                // printf("Analogs fd ? %d\n", analog_fd);
+                
+                if (FD_ISSET(analog_fd, &readfds)) {
+
+                  // printf("IS SET ON analog_index %d\n", analog_index);
+                  
+                  numBytes = read(analog_fd, buffer, 10);
+
+                  // printf("NUM BYTES %d\n", numBytes );
+                  if (numBytes > 1)
+                    {
+                      int object_index = 0;
+                      for (object_index = 0 ; object_index < OBJ_COUNT ; object_index++) {
+                        lwm2m_object_t * obj = objArray[object_index];
+                        if (obj->analogFunc != NULL) {
+                          lwm2m_analog_callback_t analog_callback = *obj->analogFunc;
+                          // printf("AnalogFunc %s\n", analog_callback);
+                          analog_callback(analogs[analog_index].id, buffer, numBytes, obj, lwm2mH);
+                        }
+                      }
+                    }
+                }
+                // We need to close the file and reopen it at each loop execution
+                // to be able to re-read it's content.
+                //  printf("Closing fs analog_index %d\n", analog_index);
+                // printf("FD %d\n", analogs[analog_index].fd);
+                close(analog_fd);
+              }
+              
             } 
             
         }

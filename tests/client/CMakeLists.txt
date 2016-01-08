@@ -29,6 +29,7 @@ SET(SOURCES
     test_object.c
     object_led.c
     object_digital_input.c
-    object_digital_output.c)
+    object_digital_output.c
+    object_temperature_sensor.c    )
 
 add_executable(lwm2mclient ${SOURCES} ${CORE_SOURCES})

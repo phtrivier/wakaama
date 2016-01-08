@@ -354,8 +354,10 @@ typedef uint8_t (*lwm2m_create_callback_t) (uint16_t instanceId, int numData, lw
 typedef uint8_t (*lwm2m_delete_callback_t) (uint16_t instanceId, lwm2m_object_t * objectP);
 typedef void (*lwm2m_close_callback_t) (lwm2m_object_t * objectP);
   
-  typedef void (*lwm2m_gpio_callback_t) (uint16_t gpioId, char * bytes, uint16_t bytesCount, lwm2m_object_t * objectP, struct lwm2m_context_t * contextP);
+ typedef void (*lwm2m_gpio_callback_t) (uint16_t gpioId, char * bytes, uint16_t bytesCount, lwm2m_object_t * objectP, struct lwm2m_context_t * contextP);
+  typedef void (*lwm2m_analog_callback_t) (uint16_t gpioId, char * bytes, uint16_t bytesCount, lwm2m_object_t * objectP, struct lwm2m_context_t * contextP);
 
+  
   
 struct _lwm2m_object_t
 {
@@ -368,6 +370,8 @@ struct _lwm2m_object_t
     lwm2m_delete_callback_t    deleteFunc;
     lwm2m_close_callback_t     closeFunc;
     lwm2m_gpio_callback_t      gpioFunc;
+    lwm2m_analog_callback_t    analogFunc;
+  
     void *                     userData;
 };
 
