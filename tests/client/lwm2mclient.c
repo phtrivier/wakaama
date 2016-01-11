@@ -11,7 +11,7 @@
  *    http://www.eclipse.org/org/documents/edl-v10.php.
  *
  * Contributors:
- *    David Navarro, Intel Corporation - initial API and implementation
+ *    Navarro, Intel Corporation - initial API and implementation
  *    Benjamin Cabé - Please refer to git log
  *    Fabien Fleutot - Please refer to git log
  *    Simon Bernard - Please refer to git log
@@ -752,6 +752,9 @@ void print_usage(void)
     fprintf(stdout, "  -t TIME\tSet the lifetime of the Client. Default: 300\r\n");
     fprintf(stdout, "  -b\t\tBootstrap requested.\r\n");
     fprintf(stdout, "  -c\t\tChange battery level over time.\r\n");
+    fprintf(stdout, "  -i\t\tUse gpio D2 as a digital input\r\n");
+    fprintf(stdout, "  -a\t\tUse gpio 10 as an analog input\r\n");
+    
     fprintf(stdout, "\r\n");
 }
 
@@ -806,6 +809,8 @@ int main(int argc, char *argv[])
     time_t reboot_time = 0;
     int opt;
     bool bootstrapRequested = false;
+    bool digital_input = false;
+    bool analog_input = false;
 #ifdef LWM2M_BOOTSTRAP
     lwm2m_bootstrap_state_t previousBootstrapState = NOT_BOOTSTRAPPED;
 #endif
@@ -842,7 +847,7 @@ int main(int argc, char *argv[])
 
     memset(&data, 0, sizeof(client_data_t));
 
-    while ((opt = getopt(argc, argv, "bcl:n:p:t:h:")) != -1)
+    while ((opt = getopt(argc, argv, "bcioal:n:p:t:h:")) != -1)
     {
         switch (opt)
         {
@@ -867,6 +872,12 @@ int main(int argc, char *argv[])
         case 'p':
             serverPort = optarg;
             break;
+        case 'i':
+            digital_input = true;
+            break;
+       case 'a':
+         analog_input = true;
+          break;
         default:
             print_usage();
             return 0;
@@ -1069,14 +1080,22 @@ int main(int argc, char *argv[])
     fprintf(stdout, "> "); fflush(stdout);
 
     int GPIO_COUNT = 1;
-    io_t gpios[1];
+    io_t gpios[GPIO_COUNT];
     gpios[0].id = 117;
     gpios[0].dirId = 2;
 
+    if (!digital_input) {
+      GPIO_COUNT = 0;
+    }
+    
     int ANALOG_COUNT = 1;
-    io_t analogs[1];
+    io_t analogs[ANALOG_COUNT];
     analogs[0].id = 0;
     analogs[0].dirId = 0;
+
+    if (!analog_input) {
+      ANALOG_COUNT = 0;
+    }
     
     /*
      * We now enter in a while loop that will handle the communications from the server

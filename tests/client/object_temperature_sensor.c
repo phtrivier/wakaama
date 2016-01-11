@@ -42,27 +42,26 @@ void prepare_analog_a0() {
   fclose(fileStream);
 }
 
+uint16_t convert_temperature(uint16_t raw_value) {
+  float millivolts = (raw_value/1024.0) * 5000;
+  float celsius = millivolts/10;
+  return (uint16_t) celsius;
+}
+
 uint16_t get_analog_a0_value() {
   FILE *fileStream; 
   char content [8];
   fileStream = fopen (ANALOG_A0_VALUE, "r"); 
   fgets (content, 8, fileStream);
-
-  printf("[get_analog_0_value] File content ? %s\n", content);
-  
   uint16_t temperature = atoi(content);
-
-  printf("[get_analog_0_value] Value ? %d\n", temperature);
-  
   fclose(fileStream);
-  return temperature;
+  return convert_temperature(temperature);
 }
 
 static uint8_t prv_set_value(lwm2m_data_t * dataP) {
   // a simple switch structure is used to respond at the specified resource asked
   switch (dataP->id) {
   case RES_VALUE: {
-    // FIXME(pht) encode float from string ? 
     uint16_t temperature = get_analog_a0_value();
     lwm2m_data_encode_float(temperature, dataP);
     dataP->type = LWM2M_TYPE_RESOURCE;
@@ -148,14 +147,14 @@ static void prv_temperature_sensor_analog(uint16_t ioId, char * bytes, uint16_t 
     strncpy(buffer, bytes, bytesCount);
 
     // printf("Bytes read ? %s\n", buffer);
-    
+   
     uint16_t temperature_value = atoi(buffer);
+    temperature_value = convert_temperature(temperature_value);
     
     // printf("Temperature read ? %d\n", temperature_value);
     // printf("Last Temperature read ? %d\n", last_temperature);
     
-    if (temperature_value != last_temperature && abs(temperature_value - last_temperature) > 3) {
-      printf("Value changed, to %d, notifying\n", temperature_value);
+    if (temperature_value != last_temperature && abs(temperature_value - last_temperature) > 5) {
 
       lwm2m_uri_t uri;
       lwm2m_stringToUri("/3303/0/5700",
