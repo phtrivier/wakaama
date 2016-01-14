@@ -68,6 +68,9 @@ bool is_gpio_d2_on() {
 }
 
 static uint8_t prv_set_value(lwm2m_data_t * dataP) {
+
+  fprintf(stdout, "!!! Reading id %d\n", dataP->id);
+  
   // a simple switch structure is used to respond at the specified resource asked
   switch (dataP->id) {
   case RES_STATE: {
@@ -76,8 +79,18 @@ static uint8_t prv_set_value(lwm2m_data_t * dataP) {
     dataP->type = LWM2M_TYPE_RESOURCE;
     return COAP_205_CONTENT ;
   }
+  case 5502 : {
+    lwm2m_data_encode_bool(true, dataP);
+    dataP->type = LWM2M_TYPE_RESOURCE;
+    return COAP_205_CONTENT ;
+  }
   default:
-    return COAP_404_NOT_FOUND ;
+    lwm2m_data_encode_int(42, dataP);
+    dataP->type = LWM2M_TYPE_RESOURCE;
+    return COAP_205_CONTENT ;
+
+    // Just a test to return everything
+    // return COAP_404_NOT_FOUND ;
   }
 }
 
@@ -85,6 +98,8 @@ static uint8_t prv_digital_input_read(uint16_t instanceId, int * numDataP, lwm2m
   uint8_t result;
   int i;
 
+  
+  
   // this is a single instance object
   if (instanceId != 0) {
     return COAP_404_NOT_FOUND ;
@@ -94,7 +109,8 @@ static uint8_t prv_digital_input_read(uint16_t instanceId, int * numDataP, lwm2m
   if (*numDataP == 0) {
 
     uint16_t resList[] = {
-      RES_STATE
+      RES_STATE,
+      5501, 5502, 5503, 5504, 5750,5751
     };
     int nbRes = sizeof(resList) / sizeof(uint16_t);
 

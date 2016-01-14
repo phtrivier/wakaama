@@ -1096,6 +1096,22 @@ int main(int argc, char *argv[])
     if (!analog_input) {
       ANALOG_COUNT = 0;
     }
+
+    // int i;
+    for (i = 0 ; i < GPIO_COUNT ; i++) {
+      int gpio_fd = gpio_fd_open(gpios[i].dirId);
+      gpios[i].fd = gpio_fd;
+      // FD_SET(gpio_fd, &readfds);
+    }
+
+    for (i = 0 ; i < ANALOG_COUNT ; i++) {
+      // if (analogs[i].fd == NULL) {
+      int analog_fd = analog_fd_open(analogs[i].dirId);
+      analogs[i].fd = analog_fd;
+      // }
+      // FD_SET(analogs[i].fd, &readfds);
+    }
+
     
     /*
      * We now enter in a while loop that will handle the communications from the server
@@ -1143,19 +1159,17 @@ int main(int argc, char *argv[])
         FD_SET(data.sock, &readfds);
         FD_SET(STDIN_FILENO, &readfds);
 
-        int i;
         for (i = 0 ; i < GPIO_COUNT ; i++) {
-          int gpio_fd = gpio_fd_open(gpios[i].dirId);
-          gpios[i].fd = gpio_fd;
+          int gpio_fd = gpios[i].fd;
           FD_SET(gpio_fd, &readfds);
         }
 
         for (i = 0 ; i < ANALOG_COUNT ; i++) {
-          // if (analogs[i].fd == NULL) {
-            int analog_fd = analog_fd_open(analogs[i].dirId);
-            analogs[i].fd = analog_fd;
-            // }
-          FD_SET(analogs[i].fd, &readfds);
+           if (analogs[i].fd == NULL) {
+             int analog_fd = analog_fd_open(analogs[i].dirId);
+             analogs[i].fd = analog_fd;
+           }
+           FD_SET(analogs[i].fd, &readfds);
         }
         
         /*
@@ -1294,9 +1308,8 @@ int main(int argc, char *argv[])
                      }
                   }
                 }
-                // We need to close the file and reopen it at each loop execution
-                // to be able to re-read it's content.
-                close(gpios[gpio_index].fd);
+                // Move back to the beginning of the file
+                lseek(gpios[gpio_index].fd, 0, SEEK_SET);
               }
 
               int analog_index = 0;
@@ -1304,17 +1317,10 @@ int main(int argc, char *argv[])
 
                 int analog_fd = analogs[analog_index].fd;
                 
-                // printf("Checking analog_index %d\n", analog_index);
-
-                // printf("Analogs fd ? %d\n", analog_fd);
-                
                 if (FD_ISSET(analog_fd, &readfds)) {
-
-                  // printf("IS SET ON analog_index %d\n", analog_index);
                   
                   numBytes = read(analog_fd, buffer, 10);
 
-                  // printf("NUM BYTES %d\n", numBytes );
                   if (numBytes > 1)
                     {
                       int object_index = 0;
@@ -1328,11 +1334,8 @@ int main(int argc, char *argv[])
                       }
                     }
                 }
-                // We need to close the file and reopen it at each loop execution
-                // to be able to re-read it's content.
-                //  printf("Closing fs analog_index %d\n", analog_index);
-                // printf("FD %d\n", analogs[analog_index].fd);
-                close(analog_fd);
+                lseek(analog_fd, 0, SEEK_SET);
+
               }
               
             } 
